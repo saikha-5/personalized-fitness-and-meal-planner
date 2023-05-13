@@ -1,68 +1,121 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, Req, Request, UsePipes, ValidationPipe } from "@nestjs/common";
-import { AdminForm } from "./adminform.dto";
-import { AdminService } from "./adminservice.service";
-
+import { UseInterceptors, Controller, Post, UsePipes, ValidationPipe, ParseFilePipe, UploadedFile, MaxFileSizeValidator, FileTypeValidator, Body, Get, Param, ParseIntPipe, UseGuards, Session, Patch } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express/multer/interceptors/file.interceptor";
+import { diskStorage } from "multer";
+import { AdminEntity } from "./admin.entity";
+import { AdminService } from "./admins.service";
+import { AdminEditProfile, AdminProfile } from "./adminform.dto";;
+import { AdminSessionGuard } from "./session.guard";
 
 @Controller("/admin")
-export class AdminController
-{ 
-  constructor(private adminService: AdminService){}
+export class AdminController {
+    
+ 
+    
 
-  @Get("/index")
-    getAdmin(): any { 
-        return this.adminService.getIndex();
+  constructor(private adminservice:AdminService) { } 
+
+
+  @Get('/index')
+    getTrainer(): any 
+    {
+      return this.adminservice.getIndex();
     }
-    @Get("/findplanner/:id")
-    getPlannerByID(@Param("id", ParseIntPipe) id:number,): any {
-      return this.adminService.getPlannerByID(id);
+    @Get('/signin')
+    signin(@Session() session, @Body() mydto:AdminProfile)
+    {
+    if(this.adminservice.signin(mydto))
+    {
+      session.email = mydto.email;
+    
+      
+      return {message:"success"};
+    
     }
-    @Get("/findplanner")
-    getPlannerByIDName(@Query() qry:any): any {
-      return this.adminService.getPlannerByIDName(qry);
-    }  
-    @Get("/finduser/:id")
-    getUserByID(@Param("id", ParseIntPipe) id:number,): any {
-      return this.adminService.getUserByID(id);
+    else
+    {
+      return {message:"invalid credentials"};
     }
-    @Get("/finduser")
-    getUserByIDName(@Query() qry:any): any {
-      return this.adminService.getUserByIDName(qry);
-    }  
-    @Post("/insertuser")
-    @UsePipes(new ValidationPipe())
-    insertUser(@Body() mydto:AdminForm): any {
-      return this.adminService.insertUser(mydto);
-    }
-    @Post("/insertplanner")
-    @UsePipes(new ValidationPipe())
-    insertPlanner(@Body() mydto:AdminForm): any {
-      return this.adminService.insertPlanner(mydto);
+      
     }
   
-    @Put("/updateuser/")
-    @UsePipes(new ValidationPipe())
-    updateUser( 
-      @Body("name") name:string, 
-      @Body("id") id:number
-      ): any {
-    return this.adminService.updateUser(name, id);
-    }
+
+  @Post('/addAdmin')
+  @UseInterceptors(FileInterceptor('myfile', {
+      storage: diskStorage({
+          destination: './files',
+          filename: function (req, file, cb) {
+              cb(null, Date.now() + "_" + file.originalname)
+          }
+      })
+  }))
+  addAdmin(@Body() admin: AdminProfile,@UploadedFile(new ParseFilePipe({
+        validators: [
+            new MaxFileSizeValidator({ maxSize: 16000 }),
+            new FileTypeValidator({ fileType: 'png|jpg|jpeg|'}),
+        ],
+    }),) file: Express.Multer.File){
+
+        admin.filename= file.filename;  
+        console.log(file)
+        
+        return this.adminservice.addAdmin(admin);
+        
+        }
     
-    @Put("/updateuser/:id")
-  updateUserbyid( 
-      @Body("name") name:string, 
-      @Param("id", ParseIntPipe) id:number
-      ): any {
-    return this.adminService.updateUserbyid(name,id);
+    @Patch("/editProfile/")
+    @UseInterceptors(FileInterceptor('myfile', {
+        storage: diskStorage({
+            destination: './data/admin/profilePictures',
+            filename: function (_req, file, cb) {
+                cb(null, Date.now() + "_" + file.originalname)
+            }
+        })
+    }))
+    editProfile(
+        @Session() session,
+        @UploadedFile() adminImage: Express.Multer.File,
+        @Body('id', ParseIntPipe) id: number,
+        @Body() admin: AdminEditProfile
+    ): any {
+        if (adminImage)
+            admin.filename = adminImage.filename;
+        return this.adminservice.editProfile(id, admin);
+    }
+    @Get("/profile/")
+    @UseGuards(AdminSessionGuard)
+    getAdminprofile(@Session() session): any {
+        return this.adminservice.getAdminprofile(session.Id);
     }
 
-    @Delete("/deleteuser/:id")
-  deleteUserbyid( 
-     @Param("id", ParseIntPipe) id:number
-      ): any {
-    return this.adminService.deleteUserbyid(id);
-    }
 
-    
+
+@Get("/searchAdmin/:id")
+    @UseGuards(AdminSessionGuard)
+    getAdminbyid(@Param('id', ParseIntPipe) id: any): any {
+        return this.adminservice.getAdminByid(id);
+    }
+@Get("/searchAdmin/:username")
+    @UseGuards(AdminSessionGuard)
+    getAdminByuser_name(@Param('user_name', ParseIntPipe) user_name: any): any {
+        return this.adminservice.getAdminByuser_name(user_name);
+    }
+@Get("/searchAdmin/:email")
+    @UseGuards(AdminSessionGuard)
+    getAdminByemail(@Param('email', ParseIntPipe) email: any): any {
+        return this.adminservice.getAdminByemail(email);
+    }
+@Get("/searchAdmin/:adminname")
+    @UseGuards(AdminSessionGuard)
+    getAdminByadmin_name(@Param('admin_name', ParseIntPipe)admin_name: any): any {
+        return this.adminservice.getAdminByadmin_name(admin_name);
+    }         
+
+//..............admin.............//
+
+
+
+
+
+
 
 }
